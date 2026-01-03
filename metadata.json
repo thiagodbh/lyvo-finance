@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Lyvo Finance",
+  "description": "Assistente financeiro inteligente com gestão de orçamento, cartões de crédito e agenda.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
