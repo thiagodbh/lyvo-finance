@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { CalendarEvent, CalendarConnection } from '../types';
+import { getTransactions } from '../services/mockStore';
 
 type ViewMode = 'DAY' | 'WEEK' | 'MONTH';
 
@@ -58,8 +59,8 @@ const AgendaView: React.FC = () => {
 
     // --- Data Loading ---
     useEffect(() => {
-        setEvents(store.getConsolidatedEvents());
-        setConnections([...store.calendarConnections]);
+        // setEvents(store.getConsolidatedEvents());
+        // setConnections([...store.calendarConnections]);
     }, [forceUpdate, showSyncModal]);
 
     // --- Helpers ---
@@ -104,8 +105,8 @@ const AgendaView: React.FC = () => {
     };
 
     const toggleConnection = (id: string) => {
-        store.toggleConnection(id);
-        setConnections([...store.calendarConnections]); // Update local state for immediate UI feedback
+        // store.toggleConnection(id);
+        // setConnections([...store.calendarConnections]); // Update local state for immediate UI feedback
         // Data refresh happens on modal close or effect dependency
     };
 
