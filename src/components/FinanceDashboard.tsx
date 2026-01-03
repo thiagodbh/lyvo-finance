@@ -1083,15 +1083,15 @@ const AddCreditCardModal: React.FC<{ onClose: () => void, onSave: () => void }> 
 
     const handleSave = () => { 
       if (name && limit) { 
-        store.addCreditCard({ 
-          name, 
-          limit: parseFloat(limit), 
-          dueDay: parseInt(dueDay), 
-          bestPurchaseDay: parseInt(bestDay), 
-          color: 'bg-lyvo-accent', 
-          brand: 'mastercard' 
-        }); 
-        onSave(); 
+        // store.addCreditCard({ 
+          // name, 
+         // limit: parseFloat(limit), 
+          // dueDay: parseInt(dueDay), 
+         // bestPurchaseDay: parseInt(bestDay), 
+         // color: 'bg-lyvo-accent', 
+         // brand: 'mastercard' 
+       // }); 
+       // onSave(); 
       } 
     };
 
