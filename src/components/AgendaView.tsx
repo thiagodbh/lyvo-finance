@@ -1,3 +1,6 @@
+import { CalendarEvent, CalendarConnection } from '../types';
+// ADICIONE ESTA LINHA:
+import { getTransactions } from '../services/mockStore';
 import React, { useState, useEffect } from 'react';
 import { 
     Calendar as CalendarIcon, 
@@ -61,6 +64,9 @@ const AgendaView: React.FC = () => {
     useEffect(() => {
         // setEvents(store.getConsolidatedEvents());
         // setConnections([...store.calendarConnections]);
+        setEvents([]);
+        setConnections([]);
+    }, [forceUpdate, showSyncModal]);
     }, [forceUpdate, showSyncModal]);
 
     // --- Helpers ---
