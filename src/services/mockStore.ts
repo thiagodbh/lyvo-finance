@@ -1,5 +1,9 @@
-import { db, auth } from './firebase';
-import { collection, addDoc, query, where, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+// Importamos a função de buscar dados reais que você me mostrou
+import { getTransactions } from "./mockStore"; 
+
+// Configuramos a chave que você colocou no Netlify
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 
 // Esta função agora salva de verdade no seu banco Standard do Firebase
 export const saveTransaction = async (transaction: any) => {
