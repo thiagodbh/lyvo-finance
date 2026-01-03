@@ -30,7 +30,7 @@ import {
     PieChart,
     Pie
 } from 'recharts';
-import { store } from '../services/mockStore';
+
 import { Transaction, FixedBill, BudgetLimit, Forecast, CreditCard } from '../types';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F43F5E', '#0EA5E9', '#64748B'];
