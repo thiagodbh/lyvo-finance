@@ -32,6 +32,7 @@ import {
 } from 'recharts';
 
 import { Transaction, FixedBill, BudgetLimit, Forecast, CreditCard } from '../types';
+import { getTransactions } from '../services/mockStore';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F43F5E', '#0EA5E9', '#64748B'];
 
