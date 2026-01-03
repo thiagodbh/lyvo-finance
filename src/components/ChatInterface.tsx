@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Mic, Camera, TrendingDown, TrendingUp, Calendar, Loader2, X, Check, Bot, Edit2, Trash2 } from 'lucide-react';
 import { processUserCommand, executeAction, analyzeReceiptImage } from '../services/geminiService';
-import { store } from '../services/mockStore';
 
 interface Message {
   id: string;
