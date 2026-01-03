@@ -1,11 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-// Importamos a função de buscar dados reais que você me mostrou
-import { getTransactions } from "./mockStore"; 
+import { db, auth } from './firebase';
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 
-// Configuramos a chave que você colocou no Netlify
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
-
-// Esta função agora salva de verdade no seu banco Standard do Firebase
+// Esta função salva no seu Firebase real
 export const saveTransaction = async (transaction: any) => {
   const user = auth.currentUser;
   if (!user) throw new Error("Usuário não logado");
@@ -17,7 +13,7 @@ export const saveTransaction = async (transaction: any) => {
   });
 };
 
-// Esta função busca seus dados reais sempre que você abre o app
+// Esta função busca seus dados reais no Firebase
 export const getTransactions = async () => {
   const user = auth.currentUser;
   if (!user) return [];
