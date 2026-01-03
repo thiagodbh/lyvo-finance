@@ -102,12 +102,12 @@ const FinanceDashboard: React.FC = () => {
     };
 
     const handleToggleBill = (id: string) => {
-        store.toggleFixedBillStatus(id, selectedMonth, selectedYear);
+        // store.toggleFixedBillStatus(id, selectedMonth, selectedYear);
         triggerUpdate();
     };
 
     const handleConfirmForecast = (id: string) => {
-        store.confirmForecast(id, selectedMonth, selectedYear);
+        // store.confirmForecast(id, selectedMonth, selectedYear);
         triggerUpdate();
     };
 
@@ -132,10 +132,10 @@ const FinanceDashboard: React.FC = () => {
     const handleDelete = () => {
         if (!itemToDelete) return;
         if (itemToDelete.type === 'CARD') {
-            store.deleteCreditCard(itemToDelete.id);
+            // store.deleteCreditCard(itemToDelete.id);
             setSelectedCardForDetails(null);
         } else if (itemToDelete.type === 'TRANSACTION') {
-            store.deleteTransaction(itemToDelete.id);
+            // store.deleteTransaction(itemToDelete.id);
         }
         triggerUpdate();
         setItemToDelete(null);
@@ -143,7 +143,7 @@ const FinanceDashboard: React.FC = () => {
 
     const handleConfirmDeleteBill = (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
         if (billToDelete) {
-            store.deleteFixedBill(billToDelete.id, mode, selectedMonth, selectedYear);
+            // store.deleteFixedBill(billToDelete.id, mode, selectedMonth, selectedYear);
             setBillToDelete(null);
             triggerUpdate();
         }
@@ -151,7 +151,7 @@ const FinanceDashboard: React.FC = () => {
 
     const handleConfirmDeleteForecast = (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
         if (forecastToDelete) {
-            store.deleteForecast(forecastToDelete.id, mode, selectedMonth, selectedYear);
+            // store.deleteForecast(forecastToDelete.id, mode, selectedMonth, selectedYear);
             setForecastToDelete(null);
             triggerUpdate();
         }
@@ -159,7 +159,7 @@ const FinanceDashboard: React.FC = () => {
 
     const confirmPayment = (amount: number) => {
         if (payInvoiceModal) {
-            store.payCardInvoice(payInvoiceModal.cardId, amount, selectedMonth, selectedYear);
+            // store.payCardInvoice(payInvoiceModal.cardId, amount, selectedMonth, selectedYear);
             setPayInvoiceModal(null);
             setSelectedCardForDetails(null); 
             triggerUpdate();
@@ -169,8 +169,8 @@ const FinanceDashboard: React.FC = () => {
     const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
     const unpaidFixedBills = fixedBills.filter(b => !b.paidMonths.includes(monthKey));
     const pendingCardInvoices = creditCards.map(c => {
-        const val = store.calculateCardInvoice(c.id, selectedMonth, selectedYear);
-        const isPaid = store.isInvoicePaid(c.id, selectedMonth, selectedYear);
+        const val = 0; 
+        const isPaid = false; 
         return { card: c, val, isPaid };
     }).filter(item => !item.isPaid && item.val > 0);
 
