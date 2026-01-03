@@ -68,19 +68,26 @@ const FinanceDashboard: React.FC = () => {
     const [expandForecasts, setExpandForecasts] = useState(false);
     const [expandCategories, setExpandCategories] = useState(false);
 
-    const refreshData = () => {
-        setTransactions(store.getTransactionsByMonth(selectedMonth, selectedYear));
-        setFixedBills(store.getFixedBillsByMonth(selectedMonth, selectedYear)); 
-        setForecasts(store.getForecastsByMonth(selectedMonth, selectedYear));
-        setCreditCards([...store.creditCards]);
-        setLimits([...store.budgetLimits]);
-        const currentBal = store.calculateBalances(selectedMonth, selectedYear);
-        setBalanceData(currentBal);
+    const refreshData = async () => {
+        try {
+            // Buscamos os dados reais do seu Firebase
+            const data = await getTransactions();
+            
+            // Atualizamos o estado com o que veio do banco
+            if (data) {
+                setTransactions(data);
+            }
 
-        const prevMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
-        const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
-        const prevBal = store.calculateBalances(prevMonth, prevYear);
-        setPrevMonthIncome(prevBal.income);
+            // Zeramos temporariamente os outros para a tela não travar (tela branca)
+            setFixedBills([]); 
+            setForecasts([]);
+            setCreditCards([]);
+            setLimits([]);
+            setBalanceData({ income: 0, expense: 0, balance: 0 });
+            setPrevMonthIncome(0);
+        } catch (error) {
+            console.error("Erro ao carregar dados do Financeiro:", error);
+        }
     };
 
     useEffect(() => {
