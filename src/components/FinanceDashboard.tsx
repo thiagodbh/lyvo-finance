@@ -838,7 +838,7 @@ const AddFixedBillModal: React.FC<{ selectedMonth: number, selectedYear: number,
     const [dueDay, setDueDay] = useState('5');
     const handleSave = () => {
         if (name && value) {
-            store.addFixedBill({ name, baseValue: parseFloat(value), dueDay: parseInt(dueDay), category: 'Moradia', isRecurring: true }, selectedMonth, selectedYear);
+            // store.addFixedBill({ name, baseValue: parseFloat(value), dueDay: parseInt(dueDay), category: 'Moradia', isRecurring: true }, selectedMonth, selectedYear);
             onSave();
         }
     };
@@ -871,13 +871,13 @@ const AddForecastModal: React.FC<{
     const handleSave = () => {
         if (description && value) {
             if (initialData) {
-              store.updateForecast(initialData.id, {
+              // store.updateForecast(initialData.id, {
                 description,
                 value: parseFloat(value),
                 isRecurring
               });
             } else {
-              store.addForecast({ 
+              // store.addForecast({ 
                   description, 
                   value: parseFloat(value), 
                   type: 'EXPECTED_INCOME', 
@@ -933,9 +933,9 @@ const CategoryModal: React.FC<{
     const handleSave = () => {
         if (name && limit) {
             if (initialData) {
-                store.updateBudgetLimit(initialData.id, name, parseFloat(limit));
+                // store.updateBudgetLimit(initialData.id, name, parseFloat(limit));
             } else {
-                store.addBudgetLimit(name, parseFloat(limit));
+                // store.addBudgetLimit(name, parseFloat(limit));
             }
             onSave();
         }
