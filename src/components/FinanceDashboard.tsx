@@ -607,7 +607,7 @@ const FinanceDashboard: React.FC = () => {
                 onRefresh={triggerUpdate}
                 onPay={() => setPayInvoiceModal({ 
                   cardId: selectedCardForDetails.id, 
-                  fullValue: store.calculateCardInvoice(selectedCardForDetails.id, selectedMonth, selectedYear) 
+                  fullValue: 0 
                 })}
               />
             )}
@@ -615,7 +615,7 @@ const FinanceDashboard: React.FC = () => {
             {payInvoiceModal && (
               <PayInvoiceValueModal 
                 fullValue={payInvoiceModal.fullValue}
-                alreadyPaid={store.calculateTotalPaidOnInvoice(payInvoiceModal.cardId, selectedMonth, selectedYear)}
+                alreadyPaid={0}
                 onConfirm={confirmPayment}
                 onCancel={() => setPayInvoiceModal(null)}
               />
