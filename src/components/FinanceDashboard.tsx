@@ -320,10 +320,10 @@ const FinanceDashboard: React.FC = () => {
                                     <div className="w-full text-center py-4 text-gray-400 text-sm">Nenhum cartão cadastrado.</div>
                                 ) : (
                                     creditCards.map(card => {
-                                        const currentInvoice = store.calculateCardInvoice(card.id, selectedMonth, selectedYear);
+                                        const currentInvoice = 0;
                                         const available = card.limit - currentInvoice;
                                         const percent = Math.min((currentInvoice / card.limit) * 100, 100);
-                                        const isPaid = store.isInvoicePaid(card.id, selectedMonth, selectedYear);
+                                        const isPaid = false;
                                         
                                         return (
                                             <div 
