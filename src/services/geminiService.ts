@@ -1,43 +1,60 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getTransactions } from "./mockStore"; 
+import { getTransactions, saveTransaction } from "./mockStore"; 
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 
 export async function processUserCommand(userMessage: string) {
   try {
-    // 1. Buscamos os dados (por enquanto focados em transações)
-    const transactions = await getTransactions() || [];
-
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // 2. Criamos um Contexto Mestre que explica TODAS as suas funcionalidades para a IA
-    const masterContext = `
-      Você é o cérebro do LYVO™, um ecossistema de produtividade pessoal.
-      O aplicativo possui as seguintes áreas que você deve gerenciar:
-      1. FINANCEIRO: Registro de ganhos (INCOME) e gastos (EXPENSE).
-      2. AGENDA: Gestão de compromissos e calendários sincronizados.
-      3. CARTÕES: Controle de faturas e limites de crédito.
-      4. PREVISIBILIDADE: Análise de gastos futuros e metas.
-
-      DADOS REAIS ATUAIS (JSON): ${JSON.stringify(transactions)}
-
-      DIRETRIZES DE RESPOSTA:
-      - Se o usuário disser algo como "recebi", "ganhei", "paguei", "comprei", confirme que você entendeu o valor e que, assim que a função de gravação for liberada, você salvará no Financeiro.
-      - Se ele perguntar sobre compromissos, diga que você está acessando a Agenda dele.
-      - Responda de forma curta, executiva e SEMPRE em Português Brasil.
-      - Caso os dados acima estejam vazios [], diga: "Ainda não vejo registros no seu banco de dados, mas estou pronto para ajudar a organizar suas finanças e agenda!"
+    // Instrução mestre para a IA sempre tentar salvar transações
+    const systemPrompt = `
+      Você é o LYVO™, um assistente financeiro.
+      Sua principal função é identificar registros financeiros nas frases do usuário.
+      
+      Regras de Extração:
+      - Se o usuário disser algo de valor positivo (ganhei, recebi, salário), use type: "INCOME".
+      - Se for um gasto (paguei, comprei, gastei), use type: "EXPENSE".
+      
+      Sua resposta deve ser EXATAMENTE um JSON no formato abaixo, e NADA MAIS:
+      {
+        "isTransaction": true,
+        "value": 0.0,
+        "type": "INCOME" ou "EXPENSE",
+        "description": "descrição curta",
+        "category": "categoria sugerida"
+      }
+      
+      Se a frase NÃO for um registro financeiro, responda apenas com texto normal de conversa.
     `;
 
-    // 3. Enviamos para a IA
-    const result = await model.generateContent([masterContext, userMessage]);
-    const response = await result.response;
-    
-    return { text: response.text() }; 
+    const result = await model.generateContent([systemPrompt, userMessage]);
+    const aiText = result.response.text().trim();
+
+    // Verificamos se a IA retornou um JSON para salvar
+    if (aiText.includes("{") && aiText.includes("isTransaction")) {
+        // Limpamos o texto caso a IA coloque blocos de código ```json
+        const jsonString = aiText.replace(/```json|```/g, "").trim();
+        const data = JSON.parse(jsonString);
+
+        if (data.isTransaction) {
+            // Chamamos sua função do mockStore que você enviou
+            await saveTransaction({
+                value: data.value,
+                type: data.type,
+                description: data.description,
+                category: data.category
+            });
+            return { text: `✅ Entendido! Salvei seu registro de R$ ${data.value} em "${data.description}".` };
+        }
+    }
+
+    return { text: aiText }; 
   } catch (error) {
-    console.error("Erro Crítico no Gemini:", error);
-    return { text: "Estou tendo dificuldade em acessar seu banco de dados agora. Pode tentar novamente em um instante?" };
+    console.error("Erro no processamento:", error);
+    return { text: "Consegui entender seu pedido, mas tive um erro ao salvar no banco de dados." };
   }
 }
 
 export const executeAction = async () => {};
-export const analyzeReceiptImage = async () => ({ text: "Análise de imagem em manutenção." });
+export const analyzeReceiptImage = async () => ({ text: "Análise de imagem indisponível." });
