@@ -5,35 +5,39 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 
 export async function processUserCommand(userMessage: string) {
   try {
-    const transactions = await getTransactions();
-    // Usamos o modelo flash que é mais rápido e eficiente para assistentes
+    // 1. Buscamos os dados (por enquanto focados em transações)
+    const transactions = await getTransactions() || [];
+
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const systemPrompt = `
-      Você é o LYVO™, um assistente financeiro de elite, prático e inteligente.
-      CONTEXTO DO USUÁRIO:
-      - Transações atuais no banco de dados: ${JSON.stringify(transactions)}
-      
-      SUA MISSÃO:
-      1. Se o usuário informar um ganho (ex: "recebi", "ganhei", "entrou"), trate como INCOME.
-      2. Se informar um gasto (ex: "gastei", "paguei", "comprei"), trate como EXPENSE.
-      3. Se ele pedir resumo ou análise, use os dados do JSON acima para responder valores exatos.
-      4. Responda sempre em Português (Brasil), de forma curta e executiva.
-      5. Caso o usuário queira cadastrar algo, confirme que entendeu o valor e a categoria, mas avise que você está em modo de leitura por enquanto.
+    // 2. Criamos um Contexto Mestre que explica TODAS as suas funcionalidades para a IA
+    const masterContext = `
+      Você é o cérebro do LYVO™, um ecossistema de produtividade pessoal.
+      O aplicativo possui as seguintes áreas que você deve gerenciar:
+      1. FINANCEIRO: Registro de ganhos (INCOME) e gastos (EXPENSE).
+      2. AGENDA: Gestão de compromissos e calendários sincronizados.
+      3. CARTÕES: Controle de faturas e limites de crédito.
+      4. PREVISIBILIDADE: Análise de gastos futuros e metas.
+
+      DADOS REAIS ATUAIS (JSON): ${JSON.stringify(transactions)}
+
+      DIRETRIZES DE RESPOSTA:
+      - Se o usuário disser algo como "recebi", "ganhei", "paguei", "comprei", confirme que você entendeu o valor e que, assim que a função de gravação for liberada, você salvará no Financeiro.
+      - Se ele perguntar sobre compromissos, diga que você está acessando a Agenda dele.
+      - Responda de forma curta, executiva e SEMPRE em Português Brasil.
+      - Caso os dados acima estejam vazios [], diga: "Ainda não vejo registros no seu banco de dados, mas estou pronto para ajudar a organizar suas finanças e agenda!"
     `;
 
-    // Enviamos o Prompt de Sistema + a mensagem do usuário
-    const result = await model.generateContent([systemPrompt, userMessage]);
+    // 3. Enviamos para a IA
+    const result = await model.generateContent([masterContext, userMessage]);
     const response = await result.response;
     
-    // Retornamos exatamente o formato que o ChatInterface.tsx espera para exibir o balão
     return { text: response.text() }; 
   } catch (error) {
-    console.error("Erro no Gemini Service:", error);
-    return { text: "Tive um problema técnico para analisar seus dados agora. Pode repetir?" };
+    console.error("Erro Crítico no Gemini:", error);
+    return { text: "Estou tendo dificuldade em acessar seu banco de dados agora. Pode tentar novamente em um instante?" };
   }
 }
 
-// Mantemos estas para não quebrar o restante do sistema
 export const executeAction = async () => {};
-export const analyzeReceiptImage = async () => ({ text: "Análise de imagem indisponível no momento." });
+export const analyzeReceiptImage = async () => ({ text: "Análise de imagem em manutenção." });
