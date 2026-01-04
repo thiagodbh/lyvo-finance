@@ -871,19 +871,19 @@ const AddForecastModal: React.FC<{
     const handleSave = () => {
         if (description && value) {
             if (initialData) {
-              // store.updateForecast(initialData.id, {
-                // description,
-                // value: parseFloat(value),
-                // isRecurring
-             // });
+                // store.updateForecast(initialData.id, {
+                //   description,
+                //   value: parseFloat(value),
+                //   isRecurring
+                // });
             } else {
-              // store.addForecast({ 
-                  description, 
-                  value: parseFloat(value), 
-                  type: 'EXPECTED_INCOME', 
-                  isRecurring,
-                  expectedDate: new Date(selectedYear, selectedMonth, 15).toISOString()
-              }, selectedMonth, selectedYear);
+                // store.addForecast({ 
+                //     description, 
+                //     value: parseFloat(value), 
+                //     type: 'EXPECTED_INCOME', 
+                //     isRecurring,
+                //     expectedDate: new Date(selectedYear, selectedMonth, 15).toISOString()
+                // }, selectedMonth, selectedYear);
             }
             onSave();
         }
