@@ -676,7 +676,7 @@ const FinanceDashboard: React.FC = () => {
 const CardDetailModal: React.FC<{ card: CreditCard, month: number, year: number, onClose: () => void, onRefresh: () => void, onPay: () => void }> = ({ card, month, year, onClose, onRefresh, onPay }) => {
     const currentInvoice = 0;
     const paidValue = 0;
-    const transactions = Transaction[] = [];
+    const transactions: Transaction[] = [];
     const isPaid = false;
     const percent = Math.min((currentInvoice / card.limit) * 100, 100);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
