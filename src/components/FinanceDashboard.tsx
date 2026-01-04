@@ -872,10 +872,10 @@ const AddForecastModal: React.FC<{
         if (description && value) {
             if (initialData) {
               // store.updateForecast(initialData.id, {
-                description,
-                value: parseFloat(value),
-                isRecurring
-              });
+                // description,
+                // value: parseFloat(value),
+                // isRecurring
+             // });
             } else {
               // store.addForecast({ 
                   description, 
