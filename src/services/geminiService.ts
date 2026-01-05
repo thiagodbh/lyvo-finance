@@ -9,7 +9,7 @@ export async function processUserCommand(userMessage: string) {
     const user = auth.currentUser;
     if (!user) return { success: false, message: "Sessão perdida. Faça login novamente." };
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
     const result = await model.generateContent([
       "Você é o LYVO™. Extraia valor, tipo (INCOME/EXPENSE) e descrição em JSON.",
       userMessage
