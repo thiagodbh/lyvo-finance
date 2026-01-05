@@ -2,39 +2,57 @@ import { auth, db } from "./firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+// USANDO A ROTA MAIS ESTÁVEL POSSÍVEL (v1) E O MODELO QUE NÃO SAI DO AR
+const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
 
 export async function processUserCommand(userMessage: string) {
   try {
     const user = auth.currentUser;
-    if (!user) return { success: false, message: "Sessão expirada. Faça login." };
+    if (!user) return { success: false, message: "Sessão expirada. Refaça o login." };
 
-    // URL usando v1beta para garantir compatibilidade com o modelo flash 1.5
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `Aja como LYVO. Extraia valor, tipo (INCOME/EXPENSE) e descrição de: "${userMessage}". Responda APENAS JSON: {"value": 0, "type": "", "description": ""}` }] }]
-        })
-      }
-    );
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ 
+          parts: [{ 
+            text: `Você é o LYVO™. Extraia valor numérico, tipo (INCOME ou EXPENSE) e descrição de: "${userMessage}". Responda APENAS o JSON puro, sem textos extras: {"value": 0, "type": "", "description": ""}` 
+          }] 
+        }]
+      })
+    });
 
     const result = await response.json();
-    if (result.error) throw new Error(result.error.message);
+    
+    // Se o Google der erro, a mensagem aparecerá aqui para sabermos o real motivo
+    if (result.error) {
+      return { success: false, message: `Erro Google: ${result.error.message}` };
+    }
+
+    if (!result.candidates || !result.candidates[0]) {
+      throw new Error("Resposta vazia da IA. Tente novamente.");
+    }
 
     const text = result.candidates[0].content.parts[0].text;
-    const data = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
+    const cleanJson = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+    const data = JSON.parse(cleanJson);
 
+    // Salva direto no Firestore do usuário logado
     await addDoc(collection(db, "users", user.uid, "transactions"), {
-      ...data,
       value: parseFloat(data.value),
+      type: data.type,
+      description: data.description,
       date: serverTimestamp(),
       createdAt: serverTimestamp()
     });
 
-    return { success: true, message: `✅ R$ ${data.value} salvo!` };
+    return { success: true, message: `✅ R$ ${data.value} registrado!`, data };
+
   } catch (e: any) {
-    return { success: false, message: `Google diz: ${e.message}` };
+    console.error("Erro Crítico:", e.message);
+    return { success: false, message: `Erro: ${e.message}` };
   }
 }
+
+export const executeAction = (data: any) => ({ message: "OK" });
+export const analyzeReceiptImage = async () => "Indisponível nesta versão";
