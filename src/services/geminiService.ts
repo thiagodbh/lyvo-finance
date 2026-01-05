@@ -7,11 +7,13 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 export async function processUserCommand(userMessage: string) {
   try {
     const user = auth.currentUser;
-    if (!user) return { success: false, message: "Sessão perdida. Faça login novamente." };
+    if (!user) return { success: false, message: "Sessão expirada. Refaça o login." };
 
-    const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
+    // gemini-1.0-pro é o modelo estável para a rota v1 da biblioteca
+    const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" }); 
+    
     const result = await model.generateContent([
-      "Você é o LYVO™. Extraia valor, tipo (INCOME/EXPENSE) e descrição em JSON.",
+      "Você é o LYVO™. Extraia valor, tipo (INCOME/EXPENSE) e descrição. Responda APENAS JSON puro: {\"value\": 0, \"type\": \"\", \"description\": \"\"}",
       userMessage
     ]);
     
@@ -19,7 +21,6 @@ export async function processUserCommand(userMessage: string) {
     const cleanJson = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
     const data = JSON.parse(cleanJson);
 
-    // SALVAMENTO DIRETO NO FIRESTORE (SEM INTERMEDIÁRIOS)
     await addDoc(collection(db, "users", user.uid, "transactions"), {
       ...data,
       value: parseFloat(data.value),
@@ -27,12 +28,13 @@ export async function processUserCommand(userMessage: string) {
       createdAt: serverTimestamp()
     });
 
-    return { success: true, message: `✅ R$ ${data.value} salvo no seu perfil!`, data };
+    return { success: true, message: `✅ R$ ${data.value} registrado!`, data };
 
   } catch (e: any) {
-    return { success: false, message: `Erro: ${e.message}` };
+    // Retorna o erro real para sabermos se é banco ou API
+    return { success: false, message: `Erro: ${e.message.includes('404') ? 'Modelo incompatível' : e.message}` };
   }
 }
 
 export const executeAction = (data: any) => ({ message: "OK" });
-export const analyzeReceiptImage = async (img: string) => "Off";
+export const analyzeReceiptImage = async (img: string) => "Indisponível nesta versão";
