@@ -2,8 +2,8 @@ import { auth, db } from "./firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-// MUDANÇA: v1 e gemini-pro (estável)
-const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
+// URL COM NOME COMPLETO DO MODELO - PADRÃO DE SEGURANÇA MÁXIMA
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
 export async function processUserCommand(userMessage: string) {
   try {
@@ -16,7 +16,7 @@ export async function processUserCommand(userMessage: string) {
       body: JSON.stringify({
         contents: [{ 
           parts: [{ 
-            text: `Você é o LYVO™. Extraia valor, tipo (INCOME/EXPENSE) e descrição de: "${userMessage}". Responda APENAS JSON puro: {"value": 0, "type": "", "description": ""}` 
+            text: `Extraia valor, tipo (INCOME/EXPENSE) e descrição de: "${userMessage}". Responda apenas o JSON: {"value": 0, "type": "", "description": ""}` 
           }] 
         }]
       })
@@ -24,9 +24,9 @@ export async function processUserCommand(userMessage: string) {
 
     const result = await response.json();
     
-    // Agora pegaremos o erro real se a chave falhar
+    // Se o Google responder 404 ou erro de modelo, pegaremos aqui
     if (result.error) {
-      return { success: false, message: `Erro Google: ${result.error.message}` };
+      return { success: false, message: `Google diz: ${result.error.message}` };
     }
 
     const text = result.candidates[0].content.parts[0].text;
@@ -44,6 +44,6 @@ export async function processUserCommand(userMessage: string) {
     return { success: true, message: `✅ R$ ${data.value} registrado!`, data };
 
   } catch (e: any) {
-    return { success: false, message: `Erro: ${e.message}` };
+    return { success: false, message: `Erro Técnico: ${e.message}` };
   }
 }
