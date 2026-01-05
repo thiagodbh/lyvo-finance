@@ -15,5 +15,4 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Força o login a ficar salvo no navegador, resolvendo o erro de banco de dados
 setPersistence(auth, browserLocalPersistence).catch(console.error);
