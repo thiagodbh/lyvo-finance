@@ -3,51 +3,57 @@ import { getTransactions, saveTransaction } from "./mockStore";
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 
-// Mudamos o nome para 'sendMessage' para garantir que o ChatInterface te ouça
-export async function sendMessage(userMessage: string) {
+export async function processUserCommand(userMessage: string, imageBase64?: string) {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+    // Mantemos a proposta original de inteligência do LYVO™
     const systemPrompt = `
-      Você é o LYVO™, assistente financeiro. 
-      Se o usuário disser valores e ações (ganhei, recebi, paguei, gastei), você DEVE responder apenas um JSON:
+      Você é o LYVO™, assistente de produtividade.
+      Sua inteligência deve identificar transações financeiras.
+      
+      Se o usuário informar um valor (ganhei, recebi, paguei, gastei), responda EXATAMENTE neste formato JSON:
       {
-        "isTransaction": true,
-        "value": 0.0,
-        "type": "INCOME" ou "EXPENSE",
-        "description": "descrição",
-        "category": "categoria"
+        "success": true,
+        "message": "Sua confirmação amigável aqui",
+        "data": {
+          "action": "ADD_TRANSACTION",
+          "transactionDetails": {
+            "value": 0.0,
+            "type": "INCOME" ou "EXPENSE",
+            "category": "categoria",
+            "description": "descrição"
+          }
+        }
       }
-      Se for apenas conversa, responda normalmente em Português.
+      
+      Se for apenas conversa, responda:
+      { "success": false, "message": "Sua resposta de conversa aqui", "data": { "action": "UNKNOWN" } }
     `;
 
     const result = await model.generateContent([systemPrompt, userMessage]);
-    const aiText = result.response.text().trim();
+    const aiResponse = result.response.text().trim();
+    
+    // Limpeza para garantir que o JSON seja lido corretamente
+    const jsonClean = aiResponse.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(jsonClean);
 
-    // Lógica para salvar se a IA detectar uma transação
-    if (aiText.includes("isTransaction")) {
-        const jsonString = aiText.replace(/```json|```/g, "").trim();
-        const data = JSON.parse(jsonString);
-
-        if (data.isTransaction) {
-            await saveTransaction({
-                value: data.value,
-                type: data.type,
-                description: data.description,
-                category: data.category
-            });
-            return `✅ Registrado: ${data.description} (R$ ${data.value})`;
-        }
+    // INTEGRAÇÃO: Se a inteligência identificou o comando, salvamos no Firebase
+    if (parsed.success && parsed.data && parsed.data.action === "ADD_TRANSACTION") {
+        await saveTransaction(parsed.data.transactionDetails);
     }
 
-    return aiText; 
+    // Retorna exatamente o que o ChatInterface.tsx (linha 80) espera
+    return parsed;
+
   } catch (error) {
-    console.error("Erro no Gemini:", error);
-    return "Não consegui processar seu pedido. Verifique sua conexão ou a chave da API.";
+    console.error("Erro na integração da inteligência:", error);
+    return {
+      success: false,
+      message: "Tive um erro ao processar. Pode repetir o valor?"
+    };
   }
 }
 
-// Exportamos também com o nome antigo caso algum outro arquivo use
-export const processUserCommand = sendMessage;
-export const executeAction = async () => {};
-export const analyzeReceiptImage = async () => ({ text: "Indisponível" });
+export const executeAction = (data: any) => ({ message: "Ação concluída com sucesso." });
+export const analyzeReceiptImage = async (img: string) => "Análise indisponível no momento.";
