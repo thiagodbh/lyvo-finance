@@ -837,8 +837,7 @@ const AddFixedBillModal: React.FC<{ selectedMonth: number, selectedYear: number,
     const [value, setValue] = useState('');
     const [dueDay, setDueDay] = useState('5');
     const handleSave = () => {
-        if (name && value) {
-            // store.addFixedBill({ name, baseValue: parseFloat(value), dueDay: parseInt(dueDay), category: 'Moradia', isRecurring: true }, selectedMonth, selectedYear);
+        if (name && value) {            
             onSave();
         }
     };
@@ -868,23 +867,8 @@ const AddForecastModal: React.FC<{
     const [value, setValue] = useState(initialData?.value?.toString() || '');
     const [isRecurring, setIsRecurring] = useState(initialData?.isRecurring || false);
 
-    const handleSave = () => {
+   const handleSave = () => {
         if (description && value) {
-            if (initialData) {
-                // store.updateForecast(initialData.id, {
-                //   description,
-                //   value: parseFloat(value),
-                //   isRecurring
-                // });
-            } else {
-                // store.addForecast({ 
-                //     description, 
-                //     value: parseFloat(value), 
-                //     type: 'EXPECTED_INCOME', 
-                //     isRecurring,
-                //     expectedDate: new Date(selectedYear, selectedMonth, 15).toISOString()
-                // }, selectedMonth, selectedYear);
-            }
             onSave();
         }
     };
