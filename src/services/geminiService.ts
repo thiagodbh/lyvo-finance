@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { auth, db } from "./firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
+// FORÇA A VERSÃO v1beta PARA ACEITAR OS MODELOS FLASH
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 
 export async function processUserCommand(userMessage: string) {
@@ -9,8 +10,11 @@ export async function processUserCommand(userMessage: string) {
     const user = auth.currentUser;
     if (!user) return { success: false, message: "Sessão expirada. Refaça o login." };
 
-    // gemini-1.0-pro é o modelo estável para a rota v1 da biblioteca
-    const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" }); 
+    // Usando o método que ignora prefixos problemáticos da biblioteca
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-flash" },
+      { apiVersion: 'v1beta' } // ISSO RESOLVE O 404 DE VEZ
+    ); 
     
     const result = await model.generateContent([
       "Você é o LYVO™. Extraia valor, tipo (INCOME/EXPENSE) e descrição. Responda APENAS JSON puro: {\"value\": 0, \"type\": \"\", \"description\": \"\"}",
@@ -31,10 +35,10 @@ export async function processUserCommand(userMessage: string) {
     return { success: true, message: `✅ R$ ${data.value} registrado!`, data };
 
   } catch (e: any) {
-    // Retorna o erro real para sabermos se é banco ou API
-    return { success: false, message: `Erro: ${e.message.includes('404') ? 'Modelo incompatível' : e.message}` };
+    // Se ainda der erro, o log dirá se é a chave da API (403/401)
+    return { success: false, message: `Erro: ${e.message}` };
   }
 }
 
 export const executeAction = (data: any) => ({ message: "OK" });
-export const analyzeReceiptImage = async (img: string) => "Indisponível nesta versão";
+export const analyzeReceiptImage = async (img: string) => "Off";
