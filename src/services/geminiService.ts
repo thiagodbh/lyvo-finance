@@ -1,21 +1,15 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getTransactions, saveTransaction } from "./mockStore"; 
-
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
-
 export async function processUserCommand(userMessage: string, imageBase64?: string) {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // Mantemos a proposta original de inteligência do LYVO™
     const systemPrompt = `
-      Você é o LYVO™, assistente de produtividade.
-      Sua inteligência deve identificar transações financeiras.
+      Você é o LYVO™, assistente financeiro. 
+      Sua missão é identificar transações financeiras.
       
-      Se o usuário informar um valor (ganhei, recebi, paguei, gastei), responda EXATAMENTE neste formato JSON:
+      IMPORTANTE: Responda APENAS com o JSON abaixo, sem textos antes ou depois.
       {
         "success": true,
-        "message": "Sua confirmação amigável aqui",
+        "message": "Sua confirmação aqui",
         "data": {
           "action": "ADD_TRANSACTION",
           "transactionDetails": {
@@ -26,34 +20,40 @@ export async function processUserCommand(userMessage: string, imageBase64?: stri
           }
         }
       }
-      
-      Se for apenas conversa, responda:
-      { "success": false, "message": "Sua resposta de conversa aqui", "data": { "action": "UNKNOWN" } }
     `;
 
     const result = await model.generateContent([systemPrompt, userMessage]);
     const aiResponse = result.response.text().trim();
     
-    // Limpeza para garantir que o JSON seja lido corretamente
-    const jsonClean = aiResponse.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(jsonClean);
+    // TENTATIVA DE EXTRAÇÃO SEGURA DO JSON
+    let parsed;
+    try {
+        // Busca o início { e o fim } para ignorar qualquer texto extra da IA
+        const startJson = aiResponse.indexOf('{');
+        const endJson = aiResponse.lastIndexOf('}') + 1;
+        const jsonString = aiResponse.substring(startJson, endJson);
+        parsed = JSON.parse(jsonString);
+    } catch (e) {
+        // Se a IA não gerou um JSON válido, tratamos como conversa normal
+        return {
+            success: false,
+            message: aiResponse,
+            data: { action: 'UNKNOWN' }
+        };
+    }
 
     // INTEGRAÇÃO: Se a inteligência identificou o comando, salvamos no Firebase
     if (parsed.success && parsed.data && parsed.data.action === "ADD_TRANSACTION") {
         await saveTransaction(parsed.data.transactionDetails);
     }
 
-    // Retorna exatamente o que o ChatInterface.tsx (linha 80) espera
     return parsed;
 
   } catch (error) {
-    console.error("Erro na integração da inteligência:", error);
+    console.error("Erro na integração:", error);
     return {
       success: false,
-      message: "Tive um erro ao processar. Pode repetir o valor?"
+      message: "Tive um erro ao acessar o banco de dados. Pode repetir?"
     };
   }
 }
-
-export const executeAction = (data: any) => ({ message: "Ação concluída com sucesso." });
-export const analyzeReceiptImage = async (img: string) => "Análise indisponível no momento.";
