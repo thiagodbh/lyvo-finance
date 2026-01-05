@@ -1,27 +1,17 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { saveTransaction } from "./mockStore";
-import { auth } from "./firebase";
+import { auth, db } from "./firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 
-// Função para garantir que o Firebase carregou o usuário
-const getCurrentUser = () => {
-  return new Promise((resolve, reject) => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      unsubscribe();
-      resolve(user);
-    }, reject);
-  });
-};
-
 export async function processUserCommand(userMessage: string) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, message: "Você precisa estar logado para salvar." };
+    const user = auth.currentUser;
+    if (!user) return { success: false, message: "Sessão perdida. Faça login novamente." };
 
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent([
-      "Você é o LYVO™. Extraia valor, tipo (INCOME/EXPENSE) e descrição em JSON. Responda APENAS o JSON.",
+      "Você é o LYVO™. Extraia valor, tipo (INCOME/EXPENSE) e descrição em JSON.",
       userMessage
     ]);
     
@@ -29,14 +19,20 @@ export async function processUserCommand(userMessage: string) {
     const cleanJson = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
     const data = JSON.parse(cleanJson);
 
-    await saveTransaction(data);
-    return { success: true, message: `✅ R$ ${data.value} registrado!`, data };
+    // SALVAMENTO DIRETO NO FIRESTORE (SEM INTERMEDIÁRIOS)
+    await addDoc(collection(db, "users", user.uid, "transactions"), {
+      ...data,
+      value: parseFloat(data.value),
+      date: serverTimestamp(),
+      createdAt: serverTimestamp()
+    });
+
+    return { success: true, message: `✅ R$ ${data.value} salvo no seu perfil!`, data };
 
   } catch (e: any) {
-    console.error(e);
     return { success: false, message: `Erro: ${e.message}` };
   }
 }
 
 export const executeAction = (data: any) => ({ message: "OK" });
-export const analyzeReceiptImage = async (img: string) => "Indisponível";
+export const analyzeReceiptImage = async (img: string) => "Off";
