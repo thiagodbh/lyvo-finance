@@ -33,6 +33,8 @@ import {
 
 import { Transaction, FixedBill, BudgetLimit, Forecast, CreditCard } from '../types';
 import { getTransactions } from '../services/mockStore';
+import { db, auth } from '../services/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F43F5E', '#0EA5E9', '#64748B'];
 
@@ -1131,7 +1133,7 @@ const AddCreditCardModal: React.FC<{ onClose: () => void, onSave: () => void }> 
             </div>
             <div className="flex gap-3 mt-8">
               <button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold">Cancelar</button>
-              <button onClick={handleSave} className="flex-1 py-3 bg-lyvo-primary text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95">Salvar</button>
+              <button onClick={handleSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95">Salvar</button>
             </div>
           </div>
         </div>
