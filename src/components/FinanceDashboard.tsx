@@ -34,7 +34,7 @@ import {
 import { Transaction, FixedBill, BudgetLimit, Forecast, CreditCard } from '../types';
 import { getTransactions } from '../services/mockStore';
 import { db, auth } from '../services/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F43F5E', '#0EA5E9', '#64748B'];
 
@@ -72,26 +72,29 @@ const FinanceDashboard: React.FC = () => {
     const [expandCategories, setExpandCategories] = useState(false);
 
     const refreshData = async () => {
-        try {
-            // Buscamos os dados reais do seu Firebase
-            const data = await getTransactions();
-            
-            // Atualizamos o estado com o que veio do banco
-            if (data) {
-                setTransactions(data);
-            }
+    try {
+        const user = auth.currentUser;
+        if (!user) return;
 
-            // Zeramos temporariamente os outros para a tela não travar (tela branca)
-            setFixedBills([]); 
-            setForecasts([]);
-            setCreditCards([]);
-            setLimits([]);
-            setBalanceData({ income: 0, expense: 0, balance: 0 });
-            setPrevMonthIncome(0);
-        } catch (error) {
-            console.error("Erro ao carregar dados do Financeiro:", error);
-        }
-    };
+        const data = await getTransactions();
+        if (data) setTransactions(data);
+
+        // BUSCA CARTÕES REAIS
+        const cardsSnap = await getDocs(collection(db, "users", user.uid, "creditCards"));
+        setCreditCards(cardsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CreditCard)));
+
+        // BUSCA CONTAS FIXAS REAIS
+        const billsSnap = await getDocs(collection(db, "users", user.uid, "fixedBills"));
+        setFixedBills(billsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FixedBill)));
+
+        // BUSCA CATEGORIAS REAIS
+        const limitsSnap = await getDocs(collection(db, "users", user.uid, "budgetLimits"));
+        setLimits(limitsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetLimit)));
+
+    } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+    }
+};
 
     useEffect(() => {
         refreshData();
@@ -864,7 +867,10 @@ const AddFixedBillModal: React.FC<{ selectedMonth: number, selectedYear: number,
                     <input type="number" placeholder="Valor" value={value} onChange={e => setValue(e.target.value)} className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 ring-blue-500/20 text-gray-900 shadow-sm" />
                     <input type="number" placeholder="Dia Venc." value={dueDay} onChange={e => setDueDay(e.target.value)} className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 ring-blue-500/20 text-gray-900 shadow-sm" />
                 </div>
-                <div className="flex gap-3 mt-6"><button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold">Cancelar</button><button onClick={handleSave} className="flex-1 py-3 bg-lyvo-primary text-white rounded-xl font-bold">Salvar</button></div>
+            <div className="flex gap-3 mt-6">
+    <button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold">Cancelar</button>
+    <button onClick={handleSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95">Salvar Conta</button>
+</div>
             </div>
         </div>
     );
@@ -913,7 +919,7 @@ const AddForecastModal: React.FC<{
                 </div>
                 <div className="flex gap-3 mt-8">
                   <button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold">Cancelar</button>
-                  <button onClick={handleSave} className="flex-1 py-3 bg-lyvo-primary text-white rounded-xl font-bold shadow-lg shadow-blue-100">Salvar</button>
+                  <button onClick={handleSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95">Salvar Limite</button>
                 </div>
             </div>
         </div>
@@ -929,20 +935,20 @@ const CategoryModal: React.FC<{
     const [limit, setLimit] = useState(initialData?.monthlyLimit?.toString() || '');
 
     const handleSave = async () => {
-    if (name && limit && auth.currentUser) {
-        try {
-            await addDoc(collection(db, "users", auth.currentUser.uid, "budgetLimits"), {
-                category: name,
-                monthlyLimit: parseFloat(limit),
-                spent: 0,
-                createdAt: serverTimestamp()
-            });
-            onSave();
-        } catch (error) {
-            console.error("Erro ao salvar categoria:", error);
+        if (name && limit && auth.currentUser) {
+            try {
+                await addDoc(collection(db, "users", auth.currentUser.uid, "budgetLimits"), {
+                    category: name,
+                    monthlyLimit: parseFloat(limit),
+                    spent: 0,
+                    createdAt: serverTimestamp()
+                });
+                onSave();
+            } catch (error) {
+                console.error("Erro ao salvar categoria:", error);
+            }
         }
-    }
-};
+    };
 
     return (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
@@ -959,14 +965,18 @@ const CategoryModal: React.FC<{
                     </div>
                 </div>
                 <div className="flex gap-3 mt-8">
-                  <button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold">Cancelar</button>
-                  <button onClick={handleSave} className="flex-1 py-3 bg-lyvo-primary text-white rounded-xl font-bold shadow-lg shadow-blue-100">Salvar</button>
+                    <button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold">Cancelar</button>
+                    <button 
+                        onClick={handleSave} 
+                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95"
+                    >
+                        Salvar Categoria
+                    </button>
                 </div>
             </div>
         </div>
     );
 };
-
 const ReportModal: React.FC<{ 
     month: number, 
     year: number, 
