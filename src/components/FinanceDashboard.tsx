@@ -836,11 +836,23 @@ const AddFixedBillModal: React.FC<{ selectedMonth: number, selectedYear: number,
     const [name, setName] = useState('');
     const [value, setValue] = useState('');
     const [dueDay, setDueDay] = useState('5');
-    const handleSave = () => {
-        if (name && value) {            
+
+    const handleSave = async () => {
+    if (name && value && auth.currentUser) { 
+        try {
+            await addDoc(collection(db, "users", auth.currentUser.uid, "fixedBills"), {
+                name,
+                baseValue: parseFloat(value),
+                dueDay: parseInt(dueDay),
+                paidMonths: [], // Inicia como não paga
+                createdAt: serverTimestamp()
+            });
             onSave();
+        } catch (error) {
+            console.error("Erro ao salvar conta fixa:", error);
         }
-    };
+    }
+};
     return (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
             <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up">
@@ -914,16 +926,21 @@ const CategoryModal: React.FC<{
     const [name, setName] = useState(initialData?.category || '');
     const [limit, setLimit] = useState(initialData?.monthlyLimit?.toString() || '');
 
-    const handleSave = () => {
-        if (name && limit) {
-            if (initialData) {
-                // store.updateBudgetLimit(initialData.id, name, parseFloat(limit));
-            } else {
-                // store.addBudgetLimit(name, parseFloat(limit));
-            }
+    const handleSave = async () => {
+    if (name && limit && auth.currentUser) {
+        try {
+            await addDoc(collection(db, "users", auth.currentUser.uid, "budgetLimits"), {
+                category: name,
+                monthlyLimit: parseFloat(limit),
+                spent: 0,
+                createdAt: serverTimestamp()
+            });
             onSave();
+        } catch (error) {
+            console.error("Erro ao salvar categoria:", error);
         }
-    };
+    }
+};
 
     return (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
@@ -1065,19 +1082,24 @@ const AddCreditCardModal: React.FC<{ onClose: () => void, onSave: () => void }> 
     const [dueDay, setDueDay] = useState('10');
     const [bestDay, setBestDay] = useState('3');
 
-    const handleSave = () => { 
-      if (name && limit) { 
-        // store.addCreditCard({ 
-          // name, 
-         // limit: parseFloat(limit), 
-          // dueDay: parseInt(dueDay), 
-         // bestPurchaseDay: parseInt(bestDay), 
-         // color: 'bg-lyvo-accent', 
-         // brand: 'mastercard' 
-       // }); 
-       // onSave(); 
-      } 
-    };
+    const handleSave = async () => { 
+  if (name && limit && auth.currentUser) { 
+    try {
+      // Importante: addDoc envia o dado real para o Firebase
+      await addDoc(collection(db, "users", auth.currentUser.uid, "creditCards"), {
+        name,
+        limit: parseFloat(limit),
+        dueDay: parseInt(dueDay),
+        bestPurchaseDay: parseInt(bestDay),
+        color: 'bg-blue-600', // Define uma cor padrão para o card aparecer
+        createdAt: serverTimestamp()
+      });
+      onSave(); // Esta função fecha o modal e atualiza a tela
+    } catch (error) {
+      console.error("Erro ao salvar cartão:", error);
+    }
+  }
+};
 
     return (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
