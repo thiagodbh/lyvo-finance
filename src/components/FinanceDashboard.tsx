@@ -307,7 +307,9 @@ const FinanceDashboard: React.FC = () => {
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 lg:gap-0 lg:space-y-4">
-                                {fixedBills.slice(0, expandBills ? undefined : 6).map(bill => {
+                                {fixedBills
+    .filter(bill => !bill.ignoredMonths?.includes(monthKey))
+    .slice(0, expandBills ? undefined : 6).map(bill => {
                                     const isPaid = bill.paidMonths.includes(monthKey);
                                     return (
                                         <div key={bill.id} className="flex items-center justify-between py-1 bg-white md:bg-gray-50 md:p-3 md:rounded-xl lg:bg-transparent lg:p-0 group transition-all">
