@@ -165,19 +165,34 @@ const FinanceDashboard: React.FC = () => {
     const handleConfirmDeleteBill = async (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
     if (billToDelete && auth.currentUser) {
         try {
-            const { deleteDoc, doc } = await import('firebase/firestore');
-            // Deleta o documento específico pelo ID
-            await deleteDoc(doc(db, "users", auth.currentUser.uid, "fixedBills", billToDelete.id));
+            const { deleteDoc, updateDoc, doc, arrayUnion } = await import('firebase/firestore');
+            const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", billToDelete.id);
+
+            if (mode === 'ALL_FUTURE') {
+                await deleteDoc(billRef); // Apaga do banco para sempre
+            } else {
+                // Apenas esconde neste mês, salvando o mês no array 'ignoredMonths'
+                await updateDoc(billRef, {
+                    ignoredMonths: arrayUnion(monthKey)
+                });
+            }
             
             setBillToDelete(null);
-            triggerUpdate(); // Isso vai disparar o refreshData e sumir com a conta da tela
+            triggerUpdate();
         } catch (error) {
-            console.error("Erro ao excluir conta:", error);
-            alert("Erro ao excluir a conta.");
+            console.error("Erro ao processar exclusão:", error);
         }
     }
 };
-
+            }
+            
+            setBillToDelete(null);
+            triggerUpdate();
+        } catch (error) {
+            console.error("Erro ao processar exclusão:", error);
+        }
+    }
+};
     const handleConfirmDeleteForecast = (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
         if (forecastToDelete) {
             // store.deleteForecast(forecastToDelete.id, mode, selectedMonth, selectedYear);
