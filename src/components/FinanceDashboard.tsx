@@ -485,7 +485,9 @@ const FinanceDashboard: React.FC = () => {
 
                             <div className="space-y-3 mt-4">
                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Receitas Previstas</h3>
-                                {expectedIncomes.slice(0, expandForecasts ? undefined : 5).map(f => (
+                                {expectedIncomes
+    .filter(f => !f.ignoredMonths?.includes(monthKey))
+    .slice(0, expandForecasts ? undefined : 5).map(f => (
                                     <div key={f.id} className="flex items-center justify-between group p-1 transition-all border-b border-gray-50 last:border-0 pb-2">
                                         <div className="flex items-center space-x-2">
                                           <div className="flex space-x-0.5">
