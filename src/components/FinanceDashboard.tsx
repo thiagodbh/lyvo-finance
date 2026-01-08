@@ -106,10 +106,26 @@ const FinanceDashboard: React.FC = () => {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
     };
 
-    const handleToggleBill = (id: string) => {
-        // store.toggleFixedBillStatus(id, selectedMonth, selectedYear);
-        triggerUpdate();
-    };
+    const handleToggleBill = async (id: string) => {
+    if (auth.currentUser) {
+        try {
+            const { updateDoc, doc, arrayUnion, arrayRemove } = await import('firebase/firestore');
+            const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", id);
+            
+            // Verifica se o mês atual já está na lista de pagos
+            const isPaid = fixedBills.find(b => b.id === id)?.paidMonths.includes(monthKey);
+
+            await updateDoc(billRef, {
+                // Se já estava pago, remove o mês atual. Se não, adiciona.
+                paidMonths: isPaid ? arrayRemove(monthKey) : arrayUnion(monthKey)
+            });
+
+            triggerUpdate(); // Atualiza a tela para a chavinha mudar de posição
+        } catch (error) {
+            console.error("Erro ao atualizar status de pagamento:", error);
+        }
+    }
+};
 
     const handleConfirmForecast = (id: string) => {
         // store.confirmForecast(id, selectedMonth, selectedYear);
@@ -146,13 +162,21 @@ const FinanceDashboard: React.FC = () => {
         setItemToDelete(null);
     };
 
-    const handleConfirmDeleteBill = (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
-        if (billToDelete) {
-            // store.deleteFixedBill(billToDelete.id, mode, selectedMonth, selectedYear);
+    const handleConfirmDeleteBill = async (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
+    if (billToDelete && auth.currentUser) {
+        try {
+            const { deleteDoc, doc } = await import('firebase/firestore');
+            // Deleta o documento específico pelo ID
+            await deleteDoc(doc(db, "users", auth.currentUser.uid, "fixedBills", billToDelete.id));
+            
             setBillToDelete(null);
-            triggerUpdate();
+            triggerUpdate(); // Isso vai disparar o refreshData e sumir com a conta da tela
+        } catch (error) {
+            console.error("Erro ao excluir conta:", error);
+            alert("Erro ao excluir a conta.");
         }
-    };
+    }
+};
 
     const handleConfirmDeleteForecast = (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
         if (forecastToDelete) {
