@@ -225,6 +225,10 @@ const FinanceDashboard: React.FC = () => {
     };
     const handleConfirmReceipt = async (forecast: Forecast) => {
         if (!auth.currentUser) return;
+        
+        // Criando a variável que estava faltando para evitar a tela branca
+        const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+
         try {
             const { updateDoc, doc, addDoc, collection } = await import('firebase/firestore');
             
@@ -240,7 +244,7 @@ const FinanceDashboard: React.FC = () => {
                 date: new Date().toISOString(),
                 type: 'INCOME',
                 category: forecast.category || 'Receita Prevista',
-                monthRef: monthKey
+                monthRef: currentMonthKey // Agora usamos a variável correta
             });
 
             triggerUpdate();
@@ -289,23 +293,19 @@ const FinanceDashboard: React.FC = () => {
         return { card: c, val, isPaid };
     }).filter(item => !item.isPaid && item.val > 0);
 
-    const totalExpectedIncome = forecasts
-        .filter(f => f.type === 'EXPECTED_INCOME' && f.status === 'PENDING')
-        .reduce((acc, curr) => acc + curr.value, 0);
-
     // 1. O que ainda falta pagar (Contas fixas pendentes + Faturas + Previsões de despesa)
-    const pendingExpense = 
+    const totalExpectedExpense = 
         unpaidFixedBills.reduce((acc, b) => acc + b.baseValue, 0) +
         pendingCardInvoices.reduce((acc, c) => acc + c.val, 0) +
         forecasts.filter(f => f.type === 'EXPECTED_EXPENSE' && f.status === 'PENDING').reduce((acc, curr) => acc + curr.value, 0);
 
-    // 2. O que ainda falta receber (Apenas o que está PENDING e não foi ignorado)
-    const pendingIncome = forecasts
+    // 2. O que ainda falta receber (Previsões Pendentes e não ignoradas)
+    const totalExpectedIncome = forecasts
         .filter(f => f.type === 'EXPECTED_INCOME' && f.status === 'PENDING' && !f.ignoredMonths?.includes(monthKey))
         .reduce((acc, curr) => acc + curr.value, 0);
 
-    // 3. Saldo Projetado (Saldo Real Atual + O que vai entrar - O que vai sair)
-    const projectedBalance = (balanceData.balance + pendingIncome) - pendingExpense;
+    // 3. Saldo Projetado (Saldo Real Atual + O que falta receber - O que falta pagar)
+    const projectedBalance = (balanceData.balance + totalExpectedIncome) - totalExpectedExpense;
 
     const expenseData = limits.map(l => {
         const catExpense = transactions
