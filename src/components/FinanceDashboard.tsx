@@ -72,29 +72,38 @@ const FinanceDashboard: React.FC = () => {
     const [expandCategories, setExpandCategories] = useState(false);
 
     const refreshData = async () => {
-    try {
-        const user = auth.currentUser;
-        if (!user) return;
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
 
-        const data = await getTransactions();
-        if (data) setTransactions(data);
+            // 1. BUSCA TRANSAÇÕES REAIS DO FIREBASE (Fluxo de Despesas/Receitas)
+            const transSnap = await getDocs(collection(db, "users", user.uid, "transactions"));
+            const transList = transSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+            setTransactions(transList);
 
-        // BUSCA CARTÕES REAIS
-        const cardsSnap = await getDocs(collection(db, "users", user.uid, "creditCards"));
-        setCreditCards(cardsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CreditCard)));
+            // 2. BUSCA CARTÕES REAIS
+            const cardsSnap = await getDocs(collection(db, "users", user.uid, "creditCards"));
+            setCreditCards(cardsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CreditCard)));
 
-        // BUSCA CONTAS FIXAS REAIS
-        const billsSnap = await getDocs(collection(db, "users", user.uid, "fixedBills"));
-        setFixedBills(billsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FixedBill)));
+            // 3. BUSCA CONTAS FIXAS REAIS
+            const billsSnap = await getDocs(collection(db, "users", user.uid, "fixedBills"));
+            setFixedBills(billsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FixedBill)));
 
-        // BUSCA CATEGORIAS REAIS
-        const limitsSnap = await getDocs(collection(db, "users", user.uid, "budgetLimits"));
-        setLimits(limitsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetLimit)));
+            // 4. BUSCA CATEGORIAS REAIS
+            const limitsSnap = await getDocs(collection(db, "users", user.uid, "budgetLimits"));
+            setLimits(limitsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetLimit)));
 
-    } catch (error) {
-        console.error("Erro ao carregar dados:", error);
-    }
-};
+            // 5. ATUALIZA O BALANÇO (Soma receitas e despesas do mês selecionado)
+            const currentMonthTrans = transList.filter(t => t.date.startsWith(`${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`));
+            const income = currentMonthTrans.filter(t => t.type === 'INCOME').reduce((sum, t) => sum + t.value, 0);
+            const expense = currentMonthTrans.filter(t => t.type === 'EXPENSE').reduce((sum, t) => sum + t.value, 0);
+            
+            setBalanceData({ income, expense, balance: income - expense });
+
+        } catch (error) {
+            console.error("Erro ao carregar dados reais do Financeiro:", error);
+        }
+    };
 
     useEffect(() => {
         refreshData();
@@ -109,17 +118,36 @@ const FinanceDashboard: React.FC = () => {
     const handleToggleBill = async (id: string) => {
     if (auth.currentUser) {
         try {
-            const { updateDoc, doc, arrayUnion, arrayRemove } = await import('firebase/firestore');
+            const { updateDoc, doc, arrayUnion, arrayRemove, addDoc, collection } = await import('firebase/firestore');
             const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", id);
-            
-            // Verifica se o mês atual já está na lista de pagos
-            const isPaid = fixedBills.find(b => b.id === id)?.paidMonths.includes(monthKey);
+            const bill = fixedBills.find(b => b.id === id);
+            const isPaid = bill?.paidMonths.includes(monthKey);
 
-            await updateDoc(billRef, {
-                // Se já estava pago, remove o mês atual. Se não, adiciona.
-                paidMonths: isPaid ? arrayRemove(monthKey) : arrayUnion(monthKey)
-            });
+            if (!isPaid) {
+                // 1. Marca como pago no controle de Contas Fixas
+                await updateDoc(billRef, { paidMonths: arrayUnion(monthKey) });
 
+                // 2. REGISTRA NO FLUXO DE DESPESAS GERAL (Para aparecer no gráfico e últimas transações)
+                await addDoc(collection(db, "users", auth.currentUser.uid, "transactions"), {
+                    description: `Pgto: ${bill?.name}`,
+                    value: bill?.baseValue,
+                    date: new Date().toISOString(),
+                    type: 'EXPENSE',
+                    category: 'Contas Fixas',
+                    monthRef: monthKey, // Referência para o gráfico do mês
+                    relatedBillId: id    // Vinculo interno
+                });
+            } else {
+                // Se o usuário desmarcar o "pago", removemos o registro de pagamento
+                await updateDoc(billRef, { paidMonths: arrayRemove(monthKey) });
+                // (Opcional: você pode adicionar lógica para deletar a transação aqui se desejar)
+            }
+            triggerUpdate();
+        } catch (error) {
+            console.error("Erro ao processar pagamento:", error);
+        }
+    }
+};
             triggerUpdate(); // Atualiza a tela para a chavinha mudar de posição
         } catch (error) {
             console.error("Erro ao atualizar status de pagamento:", error);
@@ -163,25 +191,28 @@ const FinanceDashboard: React.FC = () => {
     };
 
     const handleConfirmDeleteBill = async (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
-        if (billToDelete && auth.currentUser) {
-            try {
-                const { deleteDoc, updateDoc, doc, arrayUnion } = await import('firebase/firestore');
-                const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", billToDelete.id);
+    if (billToDelete && auth.currentUser) {
+        try {
+            const { updateDoc, doc, arrayUnion } = await import('firebase/firestore');
+            const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", billToDelete.id);
 
-                if (mode === 'ALL_FUTURE') {
-                    await deleteDoc(billRef);
-                } else {
-                    await updateDoc(billRef, {
-                        ignoredMonths: arrayUnion(monthKey)
-                    });
-                }
-                setBillToDelete(null);
-                triggerUpdate();
-            } catch (error) {
-                console.error("Erro ao processar exclusão de conta:", error);
+            if (mode === 'ALL_FUTURE') {
+                // EXCLUIR TODOS OS PRÓXIMOS: Define que a conta terminou no mês passado
+                const lastMonthDate = new Date(selectedYear, selectedMonth - 1);
+                const endMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+                await updateDoc(billRef, { endMonth: endMonthKey });
+            } else {
+                // EXCLUIR APENAS ESTE MÊS: Adiciona o mês atual à lista de ignorados
+                await updateDoc(billRef, { ignoredMonths: arrayUnion(monthKey) });
             }
+            
+            setBillToDelete(null);
+            triggerUpdate(); // Atualiza a tela
+        } catch (error) {
+            console.error("Erro ao excluir:", error);
         }
-    };
+    }
+};
 
     const handleConfirmDeleteForecast = async (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
         if (forecastToDelete && auth.currentUser) {
@@ -311,8 +342,21 @@ const FinanceDashboard: React.FC = () => {
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 lg:gap-0 lg:space-y-4">
                                 {fixedBills
-    .filter(bill => !bill.ignoredMonths?.includes(monthKey))
-    .slice(0, expandBills ? undefined : 6).map(bill => {
+    .filter(bill => {
+        // 1. Só mostra se o mês atual (monthKey) for igual ou maior que o mês de criação
+        const isFromPast = bill.startMonth ? bill.startMonth <= monthKey : true;
+        
+        // 2. Só mostra se este mês NÃO estiver na lista de ignorados (excluir apenas este mês)
+        const isNotIgnored = !bill.ignoredMonths?.includes(monthKey);
+        
+        // 3. Só mostra se a conta não tiver sido encerrada em um mês anterior (excluir todos os futuros)
+        const isNotEnded = !bill.endMonth || bill.endMonth >= monthKey;
+
+        return isFromPast && isNotIgnored && isNotEnded;
+    })
+    .slice(0, expandBills ? undefined : 6).map(bill => (
+        // ... restante do seu código do map (card da conta)
+    ))}
                                     const isPaid = bill.paidMonths.includes(monthKey);
                                     return (
                                         <div key={bill.id} className="flex items-center justify-between py-1 bg-white md:bg-gray-50 md:p-3 md:rounded-xl lg:bg-transparent lg:p-0 group transition-all">
@@ -889,21 +933,26 @@ const AddFixedBillModal: React.FC<{ selectedMonth: number, selectedYear: number,
     const [dueDay, setDueDay] = useState('5');
 
     const handleSave = async () => {
-    if (name && value && auth.currentUser) { 
-        try {
-            await addDoc(collection(db, "users", auth.currentUser.uid, "fixedBills"), {
-                name,
-                baseValue: parseFloat(value),
-                dueDay: parseInt(dueDay),
-                paidMonths: [], // Inicia como não paga
-                createdAt: serverTimestamp()
-            });
-            onSave();
-        } catch (error) {
-            console.error("Erro ao salvar conta fixa:", error);
+        if (name && value && auth.currentUser) { 
+            try {
+                // Criamos a chave do mês atual (ex: "2026-01") para marcar o início
+                const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+
+                await addDoc(collection(db, "users", auth.currentUser.uid, "fixedBills"), {
+                    name,
+                    baseValue: parseFloat(value),
+                    dueDay: parseInt(dueDay),
+                    paidMonths: [],
+                    startMonth: currentMonthKey, // ADICIONADO: Define que a conta começa neste mês
+                    ignoredMonths: [], // ADICIONADO: Lista para exclusões pontuais vazia
+                    createdAt: serverTimestamp()
+                });
+                onSave();
+            } catch (error) {
+                console.error("Erro ao salvar conta fixa:", error);
+            }
         }
-    }
-};
+    };
     return (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
             <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up">
