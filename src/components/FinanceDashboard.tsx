@@ -116,44 +116,37 @@ const FinanceDashboard: React.FC = () => {
     };
 
     const handleToggleBill = async (id: string) => {
-    if (auth.currentUser) {
-        try {
-            const { updateDoc, doc, arrayUnion, arrayRemove, addDoc, collection } = await import('firebase/firestore');
-            const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", id);
-            const bill = fixedBills.find(b => b.id === id);
-            const isPaid = bill?.paidMonths.includes(monthKey);
+        if (auth.currentUser) {
+            try {
+                const { updateDoc, doc, arrayUnion, arrayRemove, addDoc, collection } = await import('firebase/firestore');
+                const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", id);
+                const bill = fixedBills.find(b => b.id === id);
+                const isPaid = bill?.paidMonths.includes(monthKey);
 
-            if (!isPaid) {
-                // 1. Marca como pago no controle de Contas Fixas
-                await updateDoc(billRef, { paidMonths: arrayUnion(monthKey) });
+                if (!isPaid) {
+                    // 1. Marca como pago
+                    await updateDoc(billRef, { paidMonths: arrayUnion(monthKey) });
 
-                // 2. REGISTRA NO FLUXO DE DESPESAS GERAL (Para aparecer no gráfico e últimas transações)
-                await addDoc(collection(db, "users", auth.currentUser.uid, "transactions"), {
-                    description: `Pgto: ${bill?.name}`,
-                    value: bill?.baseValue,
-                    date: new Date().toISOString(),
-                    type: 'EXPENSE',
-                    category: 'Contas Fixas',
-                    monthRef: monthKey, // Referência para o gráfico do mês
-                    relatedBillId: id    // Vinculo interno
-                });
-            } else {
-                // Se o usuário desmarcar o "pago", removemos o registro de pagamento
-                await updateDoc(billRef, { paidMonths: arrayRemove(monthKey) });
-                // (Opcional: você pode adicionar lógica para deletar a transação aqui se desejar)
+                    // 2. CRIA TRANSAÇÃO REAL (Para gráfico e últimas transações)
+                    await addDoc(collection(db, "users", auth.currentUser.uid, "transactions"), {
+                        description: `Pgto: ${bill?.name}`,
+                        value: bill?.baseValue,
+                        date: new Date().toISOString(),
+                        type: 'EXPENSE',
+                        category: 'Contas Fixas',
+                        monthRef: monthKey,
+                        createdAt: serverTimestamp()
+                    });
+                } else {
+                    // Se desmarcar, apenas remove o mês do array de pagos
+                    await updateDoc(billRef, { paidMonths: arrayRemove(monthKey) });
+                }
+                triggerUpdate();
+            } catch (error) {
+                console.error("Erro ao processar pagamento:", error);
             }
-            triggerUpdate();
-        } catch (error) {
-            console.error("Erro ao processar pagamento:", error);
         }
-    }
-};
-            triggerUpdate(); // Atualiza a tela para a chavinha mudar de posição
-        } catch (error) {
-            console.error("Erro ao atualizar status de pagamento:", error);
-        }
-    }
-};
+    };
 
     const handleConfirmForecast = (id: string) => {
         // store.confirmForecast(id, selectedMonth, selectedYear);
@@ -191,28 +184,28 @@ const FinanceDashboard: React.FC = () => {
     };
 
     const handleConfirmDeleteBill = async (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
-    if (billToDelete && auth.currentUser) {
-        try {
-            const { updateDoc, doc, arrayUnion } = await import('firebase/firestore');
-            const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", billToDelete.id);
+        if (billToDelete && auth.currentUser) {
+            try {
+                const { updateDoc, doc, arrayUnion, deleteDoc } = await import('firebase/firestore');
+                const billRef = doc(db, "users", auth.currentUser.uid, "fixedBills", billToDelete.id);
 
-            if (mode === 'ALL_FUTURE') {
-                // EXCLUIR TODOS OS PRÓXIMOS: Define que a conta terminou no mês passado
-                const lastMonthDate = new Date(selectedYear, selectedMonth - 1);
-                const endMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
-                await updateDoc(billRef, { endMonth: endMonthKey });
-            } else {
-                // EXCLUIR APENAS ESTE MÊS: Adiciona o mês atual à lista de ignorados
-                await updateDoc(billRef, { ignoredMonths: arrayUnion(monthKey) });
+                if (mode === 'ALL_FUTURE') {
+                    // EXCLUIR TODOS OS PRÓXIMOS: Define que a conta "morre" no mês passado
+                    const lastMonthDate = new Date(selectedYear, selectedMonth - 1);
+                    const endMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+                    await updateDoc(billRef, { endMonth: endMonthKey });
+                } else {
+                    // EXCLUIR APENAS ESTE MÊS: Adiciona à lista de ignorados
+                    await updateDoc(billRef, { ignoredMonths: arrayUnion(monthKey) });
+                }
+                
+                setBillToDelete(null);
+                triggerUpdate();
+            } catch (error) {
+                console.error("Erro ao excluir conta:", error);
             }
-            
-            setBillToDelete(null);
-            triggerUpdate(); // Atualiza a tela
-        } catch (error) {
-            console.error("Erro ao excluir:", error);
         }
-    }
-};
+    };
 
     const handleConfirmDeleteForecast = async (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
         if (forecastToDelete && auth.currentUser) {
@@ -343,20 +336,16 @@ const FinanceDashboard: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 lg:gap-0 lg:space-y-4">
                                 {fixedBills
     .filter(bill => {
-        // 1. Só mostra se o mês atual (monthKey) for igual ou maior que o mês de criação
+        // Regra 1: Data de Início (startMonth)
         const isFromPast = bill.startMonth ? bill.startMonth <= monthKey : true;
-        
-        // 2. Só mostra se este mês NÃO estiver na lista de ignorados (excluir apenas este mês)
+        // Regra 2: Mês Ignorado (ONLY_THIS)
         const isNotIgnored = !bill.ignoredMonths?.includes(monthKey);
-        
-        // 3. Só mostra se a conta não tiver sido encerrada em um mês anterior (excluir todos os futuros)
+        // Regra 3: Data de Encerramento (ALL_FUTURE)
         const isNotEnded = !bill.endMonth || bill.endMonth >= monthKey;
 
         return isFromPast && isNotIgnored && isNotEnded;
     })
-    .slice(0, expandBills ? undefined : 6).map(bill => (
-        // ... restante do seu código do map (card da conta)
-    ))}
+    .slice(0, expandBills ? undefined : 6).map(bill => {
                                     const isPaid = bill.paidMonths.includes(monthKey);
                                     return (
                                         <div key={bill.id} className="flex items-center justify-between py-1 bg-white md:bg-gray-50 md:p-3 md:rounded-xl lg:bg-transparent lg:p-0 group transition-all">
