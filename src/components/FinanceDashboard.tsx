@@ -206,6 +206,25 @@ const FinanceDashboard: React.FC = () => {
             }
         }
     };
+    // ... aqui termina a sua handleConfirmDeleteBill
+    
+    const handleDeleteTransaction = async (transactionId: string) => {
+        if (!auth.currentUser) return;
+        if (!window.confirm("Deseja excluir esta transação permanentemente?")) return;
+
+        try {
+            const { deleteDoc, doc } = await import('firebase/firestore');
+            // Remove o registro do Firebase
+            await deleteDoc(doc(db, "users", auth.currentUser.uid, "transactions", transactionId));
+            
+            // Avisa o app para recarregar os gráficos e o saldo
+            triggerUpdate(); 
+        } catch (error) {
+            console.error("Erro ao excluir transação:", error);
+        }
+    };
+
+    // ... aqui começa a próxima função ou o return do componente
 
     const handleConfirmDeleteForecast = async (mode: 'ONLY_THIS' | 'ALL_FUTURE') => {
         if (forecastToDelete && auth.currentUser) {
@@ -452,28 +471,40 @@ const FinanceDashboard: React.FC = () => {
                          <div className="bg-white p-5 rounded-3xl shadow-sm mb-8">
                             <h2 className="text-lg font-bold text-lyvo-text">Últimas Transações</h2>
                             <div className="space-y-4 mt-4">
-                                {transactions.slice(0, expandTransactions ? undefined : 4).map(t => (
-                                    <div key={t.id} className="flex items-center justify-between border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                                        <div className="flex items-center space-x-3">
-                                            <div className={`p-2 rounded-full ${t.type === 'INCOME' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
-                                                {t.type === 'INCOME' ? <ArrowUpCircle className="w-5 h-5" /> : <ArrowDownCircle className="w-5 h-5" />}
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 text-sm">{t.description}</p>
-                                                <div className="flex space-x-2 text-xs text-gray-400">
-                                                    <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
-                                                    <span>•</span>
-                                                    <span>{t.category}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <span className={`font-bold text-sm ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-500'}`}>
-                                            {t.type === 'INCOME' ? '+' : '-'} {formatCurrency(t.value)}
-                                        </span>
-                                    </div>
-                                ))}
-                                {transactions.length === 0 && <p className="text-center text-gray-400 text-sm py-4">Nenhuma transação geral neste mês.</p>}
-                            </div>
+    {transactions.slice(0, expandTransactions ? undefined : 4).map(t => (
+        <div key={t.id} className="flex items-center justify-between border-b border-gray-50 pb-3 last:border-0 last:pb-0 group">
+            <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-full ${t.type === 'INCOME' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
+                    {t.type === 'INCOME' ? <ArrowUpCircle className="w-5 h-5" /> : <ArrowDownCircle className="w-5 h-5" />}
+                </div>
+                <div>
+                    <p className="font-semibold text-gray-800 text-sm">{t.description}</p>
+                    <div className="flex space-x-2 text-xs text-gray-400">
+                        <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
+                        <span>•</span>
+                        <span>{t.category}</span>
+                    </div>
+                </div>
+            </div>
+            
+            {/* VALOR E BOTÃO DE EXCLUIR ALINHADOS À DIREITA */}
+            <div className="flex items-center space-x-3">
+                <span className={`font-bold text-sm ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-500'}`}>
+                    {t.type === 'INCOME' ? '+' : '-'} {formatCurrency(t.value)}
+                </span>
+                
+                <button 
+                    onClick={() => handleDeleteTransaction(t.id)}
+                    className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                    title="Excluir transação"
+                >
+                    <Trash2 className="w-4 h-4" />
+                </button>
+            </div>
+        </div>
+    ))}
+    {transactions.length === 0 && <p className="text-center text-gray-400 text-sm py-4">Nenhuma transação geral neste mês.</p>}
+</div>
                             {transactions.length > 4 && (
                                 <button 
                                     onClick={() => setExpandTransactions(!expandTransactions)}
