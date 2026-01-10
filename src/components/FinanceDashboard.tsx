@@ -223,35 +223,34 @@ const FinanceDashboard: React.FC = () => {
             console.error("Erro ao excluir transação:", error);
         }
     };
-    const handleConfirmReceipt = async (forecast: Forecast) => {
-        if (!auth.currentUser) return;
-        
-        // Criando a variável que estava faltando para evitar a tela branca
-        const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+    const handleConfirmReceipt = async (forecast: any) => {
+    if (!auth.currentUser) return;
+    try {
+        const { updateDoc, doc, addDoc, collection } = await import('firebase/firestore');
+        const forecastRef = doc(db, "users", auth.currentUser.uid, "forecasts", forecast.id);
 
-        try {
-            const { updateDoc, doc, addDoc, collection } = await import('firebase/firestore');
-            
-            // 1. Marca como recebido para sair da lista de previsibilidade
-            await updateDoc(doc(db, "users", auth.currentUser.uid, "forecasts", forecast.id), {
-                status: 'RECEIVED'
-            });
+        // 1. Muda o status para RECEIVED (faz sumir da lista de previsões)
+        await updateDoc(forecastRef, { 
+            status: 'RECEIVED',
+            updatedAt: serverTimestamp() 
+        });
 
-            // 2. Lança no fluxo de caixa real (Últimas Transações / Gráficos)
-            await addDoc(collection(db, "users", auth.currentUser.uid, "transactions"), {
-                description: `Rec: ${forecast.description}`,
-                value: forecast.value,
-                date: new Date().toISOString(),
-                type: 'INCOME',
-                category: forecast.category || 'Receita Prevista',
-                monthRef: currentMonthKey // Agora usamos a variável correta
-            });
+        // 2. Cria a transação real (faz aparecer no fluxo geral)
+        await addDoc(collection(db, "users", auth.currentUser.uid, "transactions"), {
+            description: `Recebido: ${forecast.description}`,
+            value: forecast.value,
+            date: new Date().toISOString(),
+            type: 'INCOME',
+            category: forecast.category || 'Previsão',
+            monthRef: monthKey
+        });
 
-            triggerUpdate();
-        } catch (error) {
-            console.error("Erro ao confirmar recebimento:", error);
-        }
-    };
+        // 3. Força a atualização de todos os componentes
+        triggerUpdate(); 
+    } catch (error) {
+        console.error("Erro na operação:", error);
+    }
+};
 
     // ... aqui começa a próxima função ou o return do componente
 
@@ -584,48 +583,50 @@ const FinanceDashboard: React.FC = () => {
 
                             <div className="space-y-3 mt-4">
                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Receitas Previstas</h3>
-                                {expectedIncomes
-    .filter(f => !f.ignoredMonths?.includes(monthKey) && f.status === 'PENDING')
-    .slice(0, expandForecasts ? undefined : 5).map(f => (
-        <div key={f.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl mb-2 group transition-all">
-            <div className="flex items-center space-x-3">
-                {/* Botões discretos de Editar e Excluir */}
-                <div className="flex flex-col space-y-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setEditingForecast(f); setShowAddForecastModal(true); }} className="p-1 hover:bg-blue-100 rounded text-blue-600">
-                        <Edit2 size={12} />
-                    </button>
-                    <button onClick={() => setForecastToDelete(f)} className="p-1 hover:bg-red-100 rounded text-red-600">
-                        <Trash2 size={12} />
-                    </button>
+                                {/* Seção de Receitas Previstas atualizada */}
+<div className="space-y-3 mt-4">
+    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Receitas Previstas</h3>
+    {expectedIncomes
+        .filter(f => 
+            f.status === 'PENDING' && 
+            !f.ignoredMonths?.includes(monthKey) &&
+            (f.monthRef === monthKey || f.isRecurring)
+        )
+        .slice(0, expandForecasts ? undefined : 5).map(f => (
+            <div key={f.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl mb-2 group transition-all">
+                <div className="flex items-center space-x-3">
+                    {/* Botões discretos de Editar e Excluir */}
+                    <div className="flex flex-col space-y-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingForecast(f); setShowAddForecastModal(true); }} className="p-1 hover:bg-blue-100 rounded text-blue-600">
+                            <Edit2 size={12} />
+                        </button>
+                        <button onClick={() => setForecastToDelete(f)} className="p-1 hover:bg-red-100 rounded text-red-600">
+                            <Trash2 size={12} />
+                        </button>
+                    </div>
+                    
+                    {/* Informações da Receita */}
+                    <div>
+                        <p className="text-sm font-bold text-gray-800 leading-none">{f.description}</p>
+                        <p className="text-[10px] text-gray-400 mt-1 uppercase font-medium">{f.category || 'Receita'}</p>
+                        <p className="text-sm font-bold text-green-600">{formatCurrency(f.value)}</p>
+                    </div>
                 </div>
-                
-                {/* Informações da Receita */}
-                <div>
-                    <p className="text-sm font-bold text-gray-800 leading-none">{f.description}</p>
-                    <p className="text-[10px] text-gray-400 mt-1 uppercase font-medium">{f.category || 'Receita'}</p>
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(f.value)}</p>
-                </div>
-            </div>
 
-            {/* Botão RECEBER em evidência na direita */}
-            <button 
-                onClick={() => handleConfirmReceipt(f)}
-                className="px-4 py-2 bg-green-600 text-white text-[10px] font-black rounded-xl shadow-md hover:bg-green-700 active:scale-95 transition-all"
-            >
-                RECEBER
-            </button>
-        </div>
-    ))}
-                                {expectedIncomes.length === 0 && (
-                                    <p className="text-[10px] text-gray-400 text-center italic py-2">Nenhuma receita prevista.</p>
-                                )}
-                                {expectedIncomes.length > 5 && (
-                                    <button onClick={() => setExpandForecasts(!expandForecasts)} className="w-full mt-2 text-center text-xs text-lyvo-primary font-bold hover:bg-blue-50 py-1.5 rounded-lg transition-colors">
-                                        {expandForecasts ? 'Ver Menos' : 'Ver Mais'}
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+                {/* Botão RECEBER evidente na direita */}
+                <button 
+                    onClick={() => handleConfirmReceipt(f)}
+                    className="px-4 py-2 bg-green-600 text-white text-[10px] font-black rounded-xl shadow-md hover:bg-green-700 active:scale-95 transition-all"
+                >
+                    RECEBER
+                </button>
+            </div>
+        ))}
+    
+    {expectedIncomes.filter(f => f.status === 'PENDING').length === 0 && (
+        <p className="text-[10px] text-gray-400 text-center italic py-2">Nenhuma receita prevista pendente.</p>
+    )}
+</div>
 
                          <div className="bg-white p-5 rounded-3xl shadow-sm">
                             <div className="flex items-center justify-between mb-4">
@@ -1043,21 +1044,29 @@ const AddForecastModal: React.FC<{
     const [isRecurring, setIsRecurring] = useState(initialData?.isRecurring || false);
 
    const handleSave = async () => {
+    // Verifique se você tem os estados: [category, setCategory] no seu modal
     if (description && value && auth.currentUser) {
         try {
+            const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+            
             await addDoc(collection(db, "users", auth.currentUser.uid, "forecasts"), {
                 description,
                 value: parseFloat(value),
-                category: category || 'Outros', // Adicione um estado para categoria
+                category: category || 'Outros', // Campo novo para categoria
                 type: 'EXPECTED_INCOME',
-                status: 'PENDING',
-                monthRef: monthKey,
+                status: 'PENDING', // Importante para o filtro
+                monthRef: currentMonthKey, // Vincula ao mês atual
+                ignoredMonths: [], // Inicia vazio para não dar erro no filter
                 createdAt: serverTimestamp()
             });
             onSave();
+            onClose();
         } catch (error) {
             console.error("Erro ao salvar previsão:", error);
+            alert("Erro ao salvar. Verifique o console.");
         }
+    } else {
+        alert("Preencha descrição e valor!");
     }
 };
 
